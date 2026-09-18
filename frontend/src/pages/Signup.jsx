@@ -15,19 +15,58 @@ const Signup = () => {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState("");
 
-  const handleChange = (e) => {
+    const checkPasswordStrength = (password) => {
+    if (!password) {
+      return "";
+    }
+
+    if (password.length < 8) {
+      return "Weak";
+    }
+
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+
+    const score = [
+      hasUppercase,
+      hasLowercase,
+      hasNumber,
+      hasSpecial,
+    ].filter(Boolean).length;
+
+    if (password.length >= 12 && score >= 3) {
+      return "Strong";
+    }
+
+    if (score >= 2) {
+      return "Medium";
+    }
+
+    return "Weak";
+  };
+
+    const handleChange = (e) => {
+    const { name, value } = e.target;
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
 
-    // Clear error while user is typing
+    if (name === "password") {
+      setPasswordStrength(checkPasswordStrength(value));
+    }
+
     if (error) {
       setError("");
     }
   };
-
   const validateForm = () => {
     const { name, email, password, confirmPassword } = formData;
 
@@ -174,17 +213,51 @@ const Signup = () => {
               Password
             </label>
 
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Create a password"
-              autoComplete="new-password"
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-            />
+          <div className="relative">
+          <input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            value={formData.password}
+            onChange={handleChange}
+            placeholder="Create a password"
+            className="w-full rounded-lg border border-gray-300 px-4 py-3 pr-12 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+          />
+          {passwordStrength && (
+
+          <div className="mt-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-500">
+                Password strength
+              </span>
+
+              <span className="font-medium">
+                {passwordStrength}
+              </span>
+            </div>
+
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  passwordStrength === "Weak"
+                    ? "w-1/3 bg-red-500"
+                    : passwordStrength === "Medium"
+                    ? "w-2/3 bg-yellow-500"
+                    : "w-full bg-green-500"
+                }`}
+              />
+            </div>
+          </div>
+        )}
+
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-black"
+          >
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        </div>
 
             <p className="text-xs text-gray-400 mt-2">
               Minimum 8 characters
@@ -200,17 +273,27 @@ const Signup = () => {
               Confirm Password
             </label>
 
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              placeholder="Confirm your password"
-              autoComplete="new-password"
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-            />
+            <div className="relative">
+          <input
+            id="confirmPassword"
+            name="confirmPassword"
+            type={showConfirmPassword ? "text" : "password"}
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            placeholder="Confirm your password"
+            className="w-full rounded-lg border border-gray-300 px-4 py-3 pr-12 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+          />
+
+          <button
+            type="button"
+            onClick={() =>
+              setShowConfirmPassword(!showConfirmPassword)
+            }
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-black"
+          >
+            {showConfirmPassword ? "Hide" : "Show"}
+          </button>
+        </div>
           </div>
 
           {/* Submit */}
@@ -235,20 +318,17 @@ const Signup = () => {
         </div>
 
         {/* Google */}
-        <button
-          type="button"
-          className="w-full border border-gray-300 py-3 rounded-lg font-medium hover:bg-gray-50 transition"
-        >
-          Continue with Google
-        </button>
+      <button
+      type="button"
+      onClick={() => {
+        window.location.href =
+          `${import.meta.env.VITE_API_URL}/auth/google`;
+      }}
+      className="w-full rounded-lg border border-gray-300 py-3 font-medium text-gray-700 transition hover:bg-gray-50"
+    >
+      Continue with Google
+    </button>
 
-        {/* Apple */}
-        <button
-          type="button"
-          className="w-full border border-gray-300 py-3 rounded-lg font-medium hover:bg-gray-50 transition mt-3"
-        >
-          Continue with Apple
-        </button>
 
         {/* Login */}
         <p className="text-center text-sm text-gray-500 mt-7">

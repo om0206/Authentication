@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  resendVerification,
+} from "../services/authService";
 import { useAuth } from "../context/AuthContext";
-import axios from "axios";
 
 const Login = () => {
   const { login } = useAuth();
@@ -14,19 +16,83 @@ const Login = () => {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-   const [resendMessage, setResendMessage] = useState("");
-   const [resendLoading, setResendLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
+  const [resendLoading, setResendLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
+
+    if (error) setError("");
+    if (resendMessage) setResendMessage("");
   };
-    const handleResendVerification = async () => {
-    if (!formData.email) {
-        setError("Please enter your email first");
-        return;
+
+  const validateForm = () => {
+    const { email, password } = formData;
+
+    if (!email.trim()) {
+      return "Please enter your email";
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email.trim())) {
+      return "Please enter a valid email address";
+    }
+
+    if (!password) {
+      return "Please enter your password";
+    }
+
+    return "";
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    setError("");
+    setResendMessage("");
+
+    const validationError = validateForm();
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await login({
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+      });
+
+      navigate("/dashboard");
+    } catch (error) {
+      setError(
+        error.response?.data?.message ||
+          "Login failed. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!formData.email.trim()) {
+      setError("Please enter your email first");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(formData.email.trim())) {
+      setError("Please enter a valid email address");
+      return;
     }
 
     setError("");
@@ -34,78 +100,53 @@ const Login = () => {
     setResendLoading(true);
 
     try {
-        const response = await axios.post(
-        "http://localhost:5000/api/auth/resend-verification",
-        {
-            email: formData.email,
-        }
-        );
+      const data = await resendVerification(
+        formData.email.trim().toLowerCase()
+      );
 
-        setResendMessage(response.data.message);
-    } catch (error) {
-        setError(
-        error.response?.data?.message ||
-            "Unable to resend verification email."
-        );
-    } finally {
-        setResendLoading(false);
-    }
-    };
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    setError("");
-    setLoading(true);
-
-    try {
-      await login(formData);
-
-      navigate("/dashboard");
+      setResendMessage(data.message);
     } catch (error) {
       setError(
-        error.response?.data?.message || "Login failed. Please try again."
+        error.response?.data?.message ||
+          "Unable to resend verification email."
       );
     } finally {
-      setLoading(false);
+      setResendLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        {/* Heading */}
-        <div className="text-center mb-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-8">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
+        <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-900">
             Welcome Back
           </h1>
 
-          <p className="text-gray-500 mt-2">
-            Login to your account
+          <p className="mt-2 text-sm text-gray-500">
+            Sign in to continue to your account
           </p>
         </div>
 
-        {/* Error */}
         {error && (
-          <div className="mb-5 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+          <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
           </div>
         )}
 
         {resendMessage && (
-            <div className="mb-5 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-600">
-                {resendMessage}
-            </div>
+          <div className="mb-5 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+            {resendMessage}
+          </div>
         )}
 
-        {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Email */}
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="mb-2 block text-sm font-medium text-gray-700"
             >
-              Email
+              Email address
             </label>
 
             <input
@@ -114,99 +155,95 @@ const Login = () => {
               type="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="Enter your email"
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-black"
+              placeholder="you@example.com"
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
             />
           </div>
 
-          {/* Password */}
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="mb-2 block text-sm font-medium text-gray-700"
             >
               Password
             </label>
 
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter your password"
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-black"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter your password"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 pr-12 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-black"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </div>
 
-          {/* Forgot Password */}
-        <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <button
-                type="button"
-                onClick={handleResendVerification}
-                disabled={resendLoading}
-                className="text-sm font-medium text-gray-700 hover:text-black disabled:opacity-50"
+              type="button"
+              onClick={handleResendVerification}
+              disabled={resendLoading}
+              className="text-sm font-medium text-gray-700 hover:text-black disabled:opacity-50"
             >
-                {resendLoading
+              {resendLoading
                 ? "Sending..."
                 : "Resend verification email"}
             </button>
 
             <Link
-                to="/forgot-password"
-                className="text-sm font-medium text-gray-700 hover:text-black"
+              to="/forgot-password"
+              className="text-sm font-medium text-gray-700 hover:text-black"
             >
-                Forgot password?
+              Forgot password?
             </Link>
-            </div>
+          </div>
 
-          {/* Login Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-black text-white py-3 rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-lg bg-black py-3 font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-        {/* Divider */}
-        <div className="flex items-center my-7">
-          <div className="flex-1 h-px bg-gray-200"></div>
-
-          <span className="px-4 text-sm text-gray-400">
-            OR
-          </span>
-
-          <div className="flex-1 h-px bg-gray-200"></div>
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-200"></div>
+          <span className="text-sm text-gray-400">OR</span>
+          <div className="h-px flex-1 bg-gray-200"></div>
         </div>
 
-        {/* Google */}
+        <div className="space-y-3">
         <button
           type="button"
-          className="w-full border border-gray-300 py-3 rounded-lg font-medium hover:bg-gray-50"
+          onClick={() => {
+            window.location.href =
+              "http://localhost:5000/api/auth/google";
+          }}
+          className="w-full rounded-lg border border-gray-300 py-3 font-medium text-gray-700 transition hover:bg-gray-50"
         >
           Continue with Google
         </button>
+        </div>
 
-        {/* Apple */}
-        <button
-          type="button"
-          className="w-full border border-gray-300 py-3 rounded-lg font-medium hover:bg-gray-50 mt-3"
-        >
-          Continue with Apple
-        </button>
-
-        {/* Signup */}
-        <p className="text-center text-sm text-gray-500 mt-7">
+        <p className="mt-6 text-center text-sm text-gray-600">
           Don't have an account?{" "}
           <Link
             to="/signup"
             className="font-semibold text-black hover:underline"
           >
-            Sign up
+            Create account
           </Link>
         </p>
       </div>

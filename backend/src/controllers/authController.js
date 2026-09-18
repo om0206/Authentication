@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const generateToken = require("../utils/generateToken");
 const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
+const { oauth2Client, getGoogleAuthUrl } = require("../utils/googleAuth");
 
 const signup = async (req, res) => {
   try {
@@ -543,6 +544,160 @@ const resendVerificationEmail = async (req, res) => {
   }
 };
 
+
+const googleLogin = (req, res) => {
+  const url = getGoogleAuthUrl();
+
+  res.redirect(url);
+};
+
+const googleCallback = async (req, res) => {
+  try {
+    const { code } = req.query;
+
+    if (!code) {
+      return res.status(400).json({
+        message: "Google authorization code is missing",
+      });
+    }
+
+    const { tokens } = await oauth2Client.getToken(code);
+
+    oauth2Client.setCredentials(tokens);
+
+    const { data } = await oauth2Client.request({
+      url: "https://openidconnect.googleapis.com/v1/userinfo",
+    });
+
+    const {
+      sub: googleId,
+      email,
+      name,
+    } = data;
+
+    if (!email) {
+      return res.status(400).json({
+        message: "Google account email not available",
+      });
+    }
+
+    let user = await User.findOne({
+      $or: [
+        { googleId },
+        { email },
+      ],
+    });
+
+    if (!user) {
+      user = await User.create({
+        name: name || "Google User",
+        email: email.toLowerCase(),
+        provider: "google",
+        googleId,
+        isVerified: true,
+      });
+    } else {
+      if (user.provider === "local") {
+        user.googleId = googleId;
+        user.provider = "google";
+        user.isVerified = true;
+
+        await user.save();
+      }
+    }
+
+    const token = generateToken(user._id);
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? "none"
+          : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.redirect("http://localhost:5173/dashboard");
+  } catch (error) {
+    console.error("Google OAuth error:", error);
+
+    res.redirect(
+      "http://localhost:5173/login?error=google_auth_failed"
+    );
+  }
+};
+
+
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        message: "Current password and new password are required",
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        message: "New password must be at least 8 characters",
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    if (user.provider !== "local") {
+      return res.status(400).json({
+        message: "Password change is not available for social login accounts",
+      });
+    }
+
+    const isPasswordCorrect = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        message: "Current password is incorrect",
+      });
+    }
+
+    const isSamePassword = await bcrypt.compare(
+      newPassword,
+      user.password
+    );
+
+    if (isSamePassword) {
+      return res.status(400).json({
+        message: "New password must be different from your current password",
+      });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 12);
+
+    await user.save();
+
+    res.json({
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+
+    res.status(500).json({
+      message: "Unable to change password",
+    });
+  }
+};
+
+
 module.exports = {
   signup,
   login,
@@ -552,4 +707,7 @@ module.exports = {
   resetPassword,
   verifyEmail,
   resendVerificationEmail,
+  googleLogin,
+  googleCallback,
+  changePassword,
 };

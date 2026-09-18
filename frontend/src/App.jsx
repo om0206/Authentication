@@ -1,43 +1,65 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
-import ProtectedRoute from "./routes/ProtectedRoute";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
+import ChangePassword from "./pages/ChangePassword";
+
+import ProtectedRoute from "./routes/ProtectedRoute";
+
 const App = () => {
   return (
     <BrowserRouter>
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
+      <Routes>
 
-      <Route
-        path="/forgot-password"
-        element={<ForgotPassword />}
-      />
+        {/* Public Routes */}
+        <Route path="/login" element={<Login />} />
 
-      <Route
-        path="/reset-password/:token"
-        element={<ResetPassword />}
-      />
+        <Route path="/signup" element={<Signup />} />
 
-      <Route
-        path="/verify-email/:token"
-        element={<VerifyEmail />}
-      />
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
 
-      <Route element={<ProtectedRoute />}>
-        <Route path="/dashboard" element={<Dashboard />} />
-      </Route>
+        <Route
+          path="/reset-password/:token"
+          element={<ResetPassword />}
+        />
 
-      <Route
-        path="/"
-        element={<Navigate to="/login" replace />}
-      />
-    </Routes>
+        <Route
+          path="/verify-email/:token"
+          element={<VerifyEmail />}
+        />
+
+        {/* Protected Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route
+            path="/dashboard"
+            element={<Dashboard />}
+          />
+
+          <Route
+            path="/change-password"
+            element={<ChangePassword />}
+          />
+        </Route>
+
+        {/* Default Route */}
+        <Route
+          path="/"
+          element={<Navigate to="/login" replace />}
+        />
+
+      </Routes>
     </BrowserRouter>
   );
 };
